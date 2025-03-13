@@ -35,7 +35,7 @@ jobs:
         run: trivy image --format cyclonedx --output sbom.json my-app:latest
         
       - name: Upload SBOM as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sbom
           path: sbom.json

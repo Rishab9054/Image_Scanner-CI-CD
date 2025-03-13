@@ -1,0 +1,4 @@
+# Example of ignoring a specific CVE with an expiration date
+# CVE-2023-1234 # Expires: 2025-01-01
+
+# Add actual CVEs you want to ignore after assessment

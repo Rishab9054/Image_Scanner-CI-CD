@@ -26,42 +26,48 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
-      - name: Install Trivy
+      - name: Run Trivy vulnerability scanner (Full Scan)
+        id: scan
         uses: aquasecurity/trivy-action@master
-
-      - name: Scan for Any Vulnerability (Block Pipeline)
+        with:
+          image-ref: 'my-app:latest'
+          format: 'table'
+          exit-code: '0'  # Don't fail yet, we want to display results first
+          vuln-type: 'os,library'
+          severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+          
+      - name: Check for Vulnerabilities and Block Pipeline
         run: |
-          echo "🔍 Running Trivy scan on Docker image..."
-          trivy image \
-            --exit-code 1 \
-            --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL \
-            --ignore-unfixed \
-            --ignore-policy .trivyignore \
-            --format table \
-            my-app:latest | tee trivy-results.log
-
-      - name: Print Trivy Scan Logs
-        if: failure()
+          echo "Running vulnerability verification check..."
+          # Run Trivy again with exit-code 1 to actually fail the build if ANY vulnerabilities exist
+          if ! trivy image --exit-code 1 --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL my-app:latest; then
+            echo "::error::🛑 SECURITY GATE FAILED: Vulnerabilities detected in the Docker image"
+            echo "::error::🛑 CI/CD Pipeline blocked - Image will not be pushed to Docker Hub"
+            echo "::error::🛑 Please fix the security issues before proceeding"
+            exit 1
+          fi
+          
+      - name: Generate SBOM
+        if: success()  # Only run if no vulnerabilities were found
         run: |
-          echo "🚨 Trivy scan found vulnerabilities!"
-          cat trivy-results.log
-
-      - name: Upload Trivy Logs as Artifact
-        if: failure()
+          trivy image --format cyclonedx --output sbom.json my-app:latest
+        
+      - name: Upload SBOM as Artifact
+        if: success()  # Only run if no vulnerabilities were found
         uses: actions/upload-artifact@v4
         with:
-          name: trivy-logs
-          path: trivy-results.log
+          name: sbom
+          path: sbom.json
           
-      - name: Login to Docker Hub (Only if scan passes)
-        if: success() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      - name: Login to Docker Hub
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && success()
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
           
-      - name: Push Image to Docker Hub (Only if scan passes)
-        if: success() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      - name: Push Image to Docker Hub
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && success()
         uses: docker/build-push-action@v4
         with:
           context: .

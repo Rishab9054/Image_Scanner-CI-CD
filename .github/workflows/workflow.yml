@@ -15,7 +15,7 @@ jobs:
       - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'rishab9054/myapp:latest'  # Your image
+          image-ref: ${{ github.event.client_payload.image_ref }}  # Dynamic image ref
           format: 'table'
           exit-code: '1'
           severity: 'HIGH,CRITICAL'
@@ -23,10 +23,10 @@ jobs:
       - name: Report Failure
         if: failure()
         run: |
-          echo "::error::Vulnerabilities detected in the image!"
+          echo "::error::Vulnerabilities detected in the image: ${{ github.event.client_payload.image_ref }}!"
           exit 1
 
       - name: Report Success
         if: success()
         run: |
-          echo "✅ No critical vulnerabilities found."
+          echo "✅ No critical vulnerabilities found in ${{ github.event.client_payload.image_ref }}."

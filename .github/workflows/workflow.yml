@@ -8,12 +8,16 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
+      - name: Debug Payload
+        run: |
+          echo "Event payload: ${{ toJson(github.event) }}"
+
       - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'rishba07/myimages'  # Replace with your image
+          image-ref: 'rishab9054/myapp:latest'  # Your image
           format: 'table'
-          exit-code: '1'  # Fail if vulnerabilities are found
+          exit-code: '1'
           severity: 'HIGH,CRITICAL'
 
       - name: Report Failure
